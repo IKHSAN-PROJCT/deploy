@@ -1,14 +1,16 @@
 export default {
-  async fetch(request) {
+  fetch(request) {
     const url = new URL(request.url)
     const cmd = url.searchParams.get("cmd") || "off"
 
     return new Response(cmd, {
-      headers: { "Content-Type": "text/plain" }
+      status: 200,
+      headers: {
+        "Content-Type": "text/plain"
+      }
     })
   }
-}new Response(null, {
-        headers: {
+}  headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type"
