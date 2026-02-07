@@ -5,16 +5,23 @@ export default {
     const url = new URL(request.url)
     const cmd = url.searchParams.get("cmd")
 
-    // Jika sender kirim on / off → simpan
+    // ==== SENDER ====
     if (cmd === "on" || cmd === "off") {
       LAST_CMD = cmd
-      return new Response("OK")
+
+      return new Response("OK", {
+        headers: {
+          "Content-Type": "text/plain",
+          "Cache-Control": "no-store, no-cache, must-revalidate"
+        }
+      })
     }
 
-    // Receiver ambil perintah terakhir
+    // ==== RECEIVER ====
     return new Response(LAST_CMD, {
       headers: {
-        "Content-Type": "text/plain"
+        "Content-Type": "text/plain",
+        "Cache-Control": "no-store, no-cache, must-revalidate"
       }
     })
   }
