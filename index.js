@@ -8,7 +8,6 @@ export default {
     // ==== SENDER ====
     if (cmd === "on" || cmd === "off") {
       LAST_CMD = cmd
-
       return new Response("OK", {
         headers: {
           "Content-Type": "text/plain",
