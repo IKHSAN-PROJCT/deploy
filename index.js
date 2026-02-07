@@ -1,13 +1,13 @@
-// STATUS GLOBAL (disimpan di memory worker)
-let lastCommand = "NONE";
-let lastTime = Date.now();
-
 export default {
-  async fetch(request, env) {
+  async fetch(request) {
+    const url = new URL(request.url)
+    const cmd = url.searchParams.get("cmd") || "off"
 
-    // ===== CORS =====
-    if (request.method === "OPTIONS") {
-      return new Response(null, {
+    return new Response(cmd, {
+      headers: { "Content-Type": "text/plain" }
+    })
+  }
+}new Response(null, {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
