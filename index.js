@@ -1,34 +1,30 @@
-let lastCommand = "NONE";
+let state = {
+  command: "NONE",
+  time: Date.now()
+};
 
 export default {
-  async fetch(request) {
+  async fetch(req) {
 
-    // POST → kirim command
-    if (request.method === "POST") {
-      const data = await request.json();
+    if (req.method === "POST") {
+      const body = await req.json();
+      const msg = (body.message || "").toLowerCase();
 
-      if (data.message) {
-        const msg = data.message.toLowerCase();
-
-        if (msg.includes("nyalakan")) {
-          lastCommand = "FLASH_ON";
-        } else if (msg.includes("matikan")) {
-          lastCommand = "FLASH_OFF";
-        }
+      if (msg.includes("nyalakan")) {
+        state.command = "FLASH_ON";
+      } else if (msg.includes("matikan")) {
+        state.command = "FLASH_OFF";
       }
 
-      return new Response(
-        JSON.stringify({
-          status: "OK",
-          command: lastCommand
-        }),
-        { headers: { "Content-Type": "application/json" } }
-      );
+      state.time = Date.now();
+
+      return new Response(JSON.stringify(state), {
+        headers: { "Content-Type": "application/json" }
+      });
     }
 
-    // GET → receiver ambil command
-    return new Response(lastCommand, {
-      headers: { "Content-Type": "text/plain" }
+    return new Response(JSON.stringify(state), {
+      headers: { "Content-Type": "application/json" }
     });
   }
 };
