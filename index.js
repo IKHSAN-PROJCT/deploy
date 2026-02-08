@@ -1,11 +1,20 @@
-let COMMAND = "NONE"; // default
+let COMMAND = "NONE";
 
 export default {
   async fetch(request) {
     const url = new URL(request.url);
-    if (url.pathname === "/get") {
-      return new Response(COMMAND, { "Content-Type": "text/plain" });
+
+    // simpan command
+    if (url.searchParams.get("cmd")) {
+      COMMAND = url.searchParams.get("cmd");
+      return new Response("OK");
     }
-    return new Response("WORKER RUNNING", { "Content-Type": "text/plain" });
+
+    // target ambil command
+    if (url.pathname === "/get") {
+      return new Response(COMMAND);
+    }
+
+    return new Response("RUNNING");
   }
 };
