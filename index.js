@@ -34,11 +34,18 @@ export default {
     // RECEIVE COMMAND
     // =====================
     if (url.pathname === "/receive") {
-      return new Response(
-        JSON.stringify({ command: LAST_COMMAND }),
-        { headers: { "Content-Type": "application/json" } }
-      )
+  return new Response(
+    JSON.stringify({ command: LAST_COMMAND }),
+    {
+      headers: {
+        "Content-Type": "application/json",
+        "Cache-Control": "no-store, no-cache, must-revalidate",
+        "Pragma": "no-cache",
+        "Expires": "0"
+      }
     }
+  )
+}
 
     return new Response("Not Found", { status: 404 })
   },
