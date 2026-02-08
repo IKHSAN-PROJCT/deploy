@@ -1,20 +1,21 @@
-let COMMAND = "NONE";
+// worker.js
+let LAST_CMD = "NONE";
 
 export default {
-  async fetch(request) {
-    const url = new URL(request.url);
+  async fetch(req) {
+    const url = new URL(req.url);
 
-    // simpan command
+    // SENDER kirim command
     if (url.searchParams.get("cmd")) {
-      COMMAND = url.searchParams.get("cmd");
+      LAST_CMD = url.searchParams.get("cmd");
       return new Response("OK");
     }
 
-    // target ambil command
+    // RECEIVER ambil command
     if (url.pathname === "/get") {
-      return new Response(COMMAND);
+      return new Response(LAST_CMD);
     }
 
-    return new Response("RUNNING");
+    return new Response("READY");
   }
 };
