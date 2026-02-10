@@ -1,24 +1,32 @@
 export default {
-  async fetch(req, env) {
-    const url = new URL(req.url);
+  async fetch(request, env) {
+    const url = new URL(request.url);
 
-    if (url.pathname === "/poll") {
-      const cmd = await env.STATE.get("CMD");
-      if (cmd) {
-        await env.STATE.delete("CMD");
-        return new Response(cmd);
-      }
-      return new Response("");
+    // Secret key untuk proteksi
+    const SECRET_KEY = env.SECRET_KEY || "260425"; // ganti sesuai secret
+
+    const auth = request.headers.get("Authorization");
+    if (auth !== `Bearer ${SECRET_KEY}`) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
-    if (url.pathname === "/set_cmd") {
-      const cmd = url.searchParams.get("cmd");
-      if (cmd) {
-        await env.STATE.put("CMD", cmd);
-        return new Response("OK");
-      }
+    // Simpan token & chat_id
+    if (request.method === "POST" && url.pathname === "/save") {
+      const data = await request.json();
+      await env.TELEGRAM_DATA.put("TOKEN", data.token);
+      await env.TELEGRAM_DATA.put("CHAT_ID", data.chat_id);
+      return new Response(JSON.stringify({ success: true }));
     }
 
-    return new Response("404", { status: 404 });
-  }
+    // Ambil token & chat_id
+    if (request.method === "GET" && url.pathname === "/get") {
+      const token = await env.TELEGRAM_DATA.get("TOKEN");
+      const chat_id = await env.TELEGRAM_DATA.get("CHAT_ID");
+      return new Response(JSON.stringify({ token, chat_id }), {
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    return new Response("Not found", { status: 404 });
+  },
 };
