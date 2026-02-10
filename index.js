@@ -1,12 +1,10 @@
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-
-    // Secret key untuk proteksi
-    const SECRET_KEY = env.SECRET_KEY || "260425"; // ganti sesuai secret
-
     const auth = request.headers.get("Authorization");
-    if (auth !== `Bearer ${SECRET_KEY}`) {
+
+    // proteksi secret key
+    if (auth !== `Bearer ${env.SECRET_KEY}`) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
     }
 
