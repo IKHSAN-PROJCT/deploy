@@ -1,3 +1,12 @@
-name = "deploy"
-main = "index.js"
+name = "deploy"                # nama Worker-mu
+main = "index.js"              # file Worker
 compatibility_date = "2025-02-01"
+
+# KV Namespace binding
+[[kv_namespaces]]
+binding = "TELEGRAM_DATA"      # nama variable di kode Worker (env.TELEGRAM_DATA)
+id = "9e08b9e3d11b41f7b63ada7a2784c976"  # ID namespace dari screenshot
+
+# Secret key binding
+[vars]
+SECRET_KEY = "1234567890"      # ganti dengan secret key yang kamu mau
