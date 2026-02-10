@@ -1,84 +1,84 @@
 export default {
-  async fetch(request, env) {
-    const url = new URL(request.url)
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
 
-    // =====================
-    // HTML
-    // =====================
-    if (url.pathname === "/") {
-      return new Response(HTML, {
-        headers: { "Content-Type": "text/html" }
-      })
+    // ===============================
+    // SSE CLIENTS
+    // ===============================
+    if (!globalThis.clients) {
+      globalThis.clients = new Set();
     }
 
-    // =====================
-    // SEND COMMAND
-    // =====================
-    if (url.pathname === "/send" && request.method === "POST") {
-      const body = await request.json()
+    // ===============================
+    // /events  → dipakai Android
+    // ===============================
+    if (url.pathname === "/events") {
+      const stream = new ReadableStream({
+        start(controller) {
+          const encoder = new TextEncoder();
 
-      const cmd = {
-        command: body.command,
-        time: Date.now()
-      }
+          const send = (msg) => {
+            controller.enqueue(
+              encoder.encode(`data: ${msg}\n\n`)
+            );
+          };
 
-      await env.COMMANDS.put("last_command", JSON.stringify(cmd))
+          const client = { send };
+          globalThis.clients.add(client);
 
-      return new Response(
-        JSON.stringify({ status: "ok", cmd }),
-        { headers: { "Content-Type": "application/json" } }
-      )
-    }
+          // kirim ping awal
+          send("CONNECTED");
 
-    // =====================
-    // RECEIVE COMMAND
-    // =====================
-    if (url.pathname === "/receive") {
-      const data = await env.COMMANDS.get("last_command")
-
-      if (!data) {
-        return new Response(
-          JSON.stringify({ command: null }),
-          { headers: { "Content-Type": "application/json" } }
-        )
-      }
-
-      // auto clear setelah diambil
-      await env.COMMANDS.delete("last_command")
-
-      return new Response(
-        JSON.stringify({ command: JSON.parse(data) }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "no-store"
-          }
+          request.signal.addEventListener("abort", () => {
+            globalThis.clients.delete(client);
+          });
         }
-      )
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          "Connection": "keep-alive",
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
     }
 
-    return new Response("Not Found", { status: 404 })
-  }
-}
+    // ===============================
+    // /send?cmd=XXXX
+    // ===============================
+    if (url.pathname === "/send") {
+      const cmd = url.searchParams.get("cmd");
 
-const HTML = `
-<!DOCTYPE html>
-<html>
-<body style="background:#111;color:#fff;text-align:center">
-<h2>🔦 Remote Senter</h2>
-<button onclick="send('FLASHLIGHT_ON')">ON</button>
-<button onclick="send('FLASHLIGHT_OFF')">OFF</button>
-<p id="s"></p>
-<script>
-async function send(c){
-  await fetch('/send',{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({command:c})
-  })
-  document.getElementById('s').innerText='Command terkirim: '+c
-}
-</script>
-</body>
-</html>
-`
+      if (!cmd) {
+        return new Response("NO_CMD", { status: 400 });
+      }
+
+      const decoded = decodeURIComponent(cmd);
+
+      // broadcast ke semua client SSE
+      if (globalThis.clients) {
+        for (const c of globalThis.clients) {
+          try {
+            c.send(decoded);
+          } catch (_) {}
+        }
+      }
+
+      return new Response("OK", {
+        headers: {
+          "Access-Control-Allow-Origin": "*"
+        }
+      });
+    }
+
+    // ===============================
+    // ROOT
+    // ===============================
+    return new Response(
+      "Cloudflare Worker Online 🚀",
+      { headers: { "Access-Control-Allow-Origin": "*" } }
+    );
+  }
+};
